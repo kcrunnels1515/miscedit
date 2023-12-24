@@ -1,0 +1,79 @@
+#+title: README
+#+author: Kelly Runnels
+#+option: num:nil
+
+* Imports
+We need to import ~std::io~ for ~stdout~-related things, and ~std::time::Duration~ for polling terminal window events.
+We use raw_mode to actually detect when input is passed into the terminal, as otherwise the terminal does stuff with it.
+#+begin_src rust :tangle ./src/main.rs
+use std::{time::Duration, io};
+use crossterm::terminal::{enable_raw_mode,disable_raw_mode,ClearType::All};
+use crossterm::{
+    //execute,
+    //style::{Color, Print, ResetColor, SetBackgroundColor, SetForegroundColor},
+    //ExecutableCommand, Result,
+    //terminal::{Clear},
+    event::{poll, read, Event, KeyEvent, KeyCode, KeyModifiers},
+};
+#+end_src
+
+* Example function - PrintEvents
+~poll()~ waits for an ~Event~ for a given time period.
+If it receives an ~Event~ during the time period, it returns true and allows the ~read()~ function to read the event data.
+Otherwise, it returns false, and the loop repeats.
+~read()~ will not block the process with this, because an event is guaranteed to exist if the code block containing ~read()~ is reached.
+#+begin_src rust :tangle no
+fn print_events() -> io::Result<()> {
+    loop {
+        if poll(Duration::from_millis(500))? {
+            match read()? {
+                Event::FocusGained => println!("FocusGained"),
+                Event::FocusLost => println!("FocusLost"),
+                Event::Key(event) => println!("{:?}", event),
+                Event::Mouse(event) => println!("{:?}", event),
+                Event::Paste(data) => println!("Pasted {:?}", data),
+                Event::Resize(width, height) => println!("New size {}x{}", width, height),
+            }
+        }
+    }
+    Ok(())
+}
+#+end_src
+
+* Text Buffer
+We want to take the character from a ~Key~ event and insert it into the
+#+begin_src rust :tangle ./src/main.rs
+fn poll_insert(text: &mut Vec<char>, ind: &mut usize, code: KeyCode, modifiers: KeyModifiers) -> io::Result<()> {
+    if let KeyCode::Char(chr) = code {
+        if chr == 'c' && modifiers == KeyModifiers::CONTROL {
+            return Err(io::Error::other("oh no"));
+        } else {
+            text[*ind] = chr;
+            *ind += 1;
+        }
+    }
+    Ok(())
+}
+
+#+end_src
+
+* Main
+#+begin_src rust :tangle ./src/main.rs
+fn main() -> std::io::Result<()> {
+    let mut text: Vec<char> = vec!['\0'; 50];
+    enable_raw_mode()?;
+    let mut insert_at: usize = 0;
+    loop {
+        if poll(Duration::from_millis(500))? {
+            if let Event::Key(KeyEvent { code, modifiers, ..}) = read()? {
+                if poll_insert(&mut text, &mut insert_at, code, modifiers).is_err() {
+                    break;
+                }
+            }
+        }
+    }
+    println!("{:?}", text);
+    disable_raw_mode()?;
+    Ok(())
+}
+#+end_src
