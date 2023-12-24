@@ -20,8 +20,24 @@ fn poll_insert(text: &mut Vec<char>, b_gap: &mut usize, e_gap: &mut usize, code:
         },
         KeyCode::Backspace => {
             if *b_gap > 0 {
-                text[*b_gap - 1] = '\0';
+                //text[*b_gap - 1] = '\0';
                 *b_gap -= 1;
+            }
+        },
+        KeyCode::Left => {
+            if *b_gap > 0 {
+                text[*e_gap] = text[*b_gap-1];
+                text[*b_gap-1] = '\0';
+                *e_gap -= 1;
+                *b_gap -= 1;
+            }
+        },
+        KeyCode::Right => {
+            if *e_gap < text.len() - 1  {
+                text[*b_gap] = text[*e_gap+1];
+                text[*e_gap] = '\0';
+                *e_gap += 1;
+                *b_gap += 1;
             }
         },
         _ => {},
@@ -32,7 +48,7 @@ fn poll_insert(text: &mut Vec<char>, b_gap: &mut usize, e_gap: &mut usize, code:
 fn main() -> std::io::Result<()> {
     let mut text: Vec<char> = vec!['\0'; 50];
     enable_raw_mode()?;
-    let mut e_gap: usize = 0;
+    let mut e_gap: usize = 49;
     let mut b_gap: usize = 0;
     loop {
         if poll(Duration::from_millis(500))? {
