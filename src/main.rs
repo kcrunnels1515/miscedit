@@ -8,14 +8,23 @@ use crossterm::{
     event::{poll, read, Event, KeyEvent, KeyCode, KeyModifiers},
 };
 
-fn poll_insert(text: &mut Vec<char>, ind: &mut usize, code: KeyCode, modifiers: KeyModifiers) -> io::Result<()> {
-    if let KeyCode::Char(chr) = code {
-        if chr == 'c' && modifiers == KeyModifiers::CONTROL {
-            return Err(io::Error::other("oh no"));
-        } else {
-            text[*ind] = chr;
-            *ind += 1;
-        }
+fn poll_insert(text: &mut Vec<char>, b_gap: &mut usize, e_gap: &mut usize, code: KeyCode, modifiers: KeyModifiers) -> io::Result<()> {
+    match code {
+        KeyCode::Char(chr) => {
+            if chr == 'c' && modifiers == KeyModifiers::CONTROL {
+                return Err(io::Error::other("oh no"));
+            } else {
+                text[*b_gap] = chr;
+                *b_gap += 1;
+            }
+        },
+        KeyCode::Backspace => {
+            if *b_gap > 0 {
+                text[*b_gap - 1] = '\0';
+                *b_gap -= 1;
+            }
+        },
+        _ => {},
     }
     Ok(())
 }
@@ -23,11 +32,12 @@ fn poll_insert(text: &mut Vec<char>, ind: &mut usize, code: KeyCode, modifiers: 
 fn main() -> std::io::Result<()> {
     let mut text: Vec<char> = vec!['\0'; 50];
     enable_raw_mode()?;
-    let mut insert_at: usize = 0;
+    let mut e_gap: usize = 0;
+    let mut b_gap: usize = 0;
     loop {
         if poll(Duration::from_millis(500))? {
             if let Event::Key(KeyEvent { code, modifiers, ..}) = read()? {
-                if poll_insert(&mut text, &mut insert_at, code, modifiers).is_err() {
+                if poll_insert(&mut text, &mut b_gap, &mut e_gap, code, modifiers).is_err() {
                     break;
                 }
             }
