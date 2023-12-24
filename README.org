@@ -50,7 +50,8 @@ CTRL+c returns an error to end the program.
 A random char sets the element at ~b_gap~ to the character entered, and increments ~b_gap~.
 String after gap is reversed.
 #+begin_src rust :tangle ./src/main.rs
-fn poll_insert(text: &mut Vec<char>, b_gap: &mut usize, e_gap: &mut usize, code: KeyCode, modifiers: KeyModifiers) -> io::Result<()> {
+fn poll_insert(text: &mut Vec<char>, b_gap: &mut usize, e_gap: &mut usize, code: KeyCode, modifiers: KeyModifiers) -> io::Result<bool> {
+    let mut text_changed: bool = false;
     match code {
         KeyCode::Char(chr) => {
             if chr == 'c' && modifiers == KeyModifiers::CONTROL {
@@ -58,35 +59,45 @@ fn poll_insert(text: &mut Vec<char>, b_gap: &mut usize, e_gap: &mut usize, code:
             } else {
                 text[*b_gap] = chr;
                 ,*b_gap += 1;
+                text_changed = true;
             }
         },
         KeyCode::Backspace => {
             if *b_gap > 0 {
                 //text[*b_gap - 1] = '\0';
                 ,*b_gap -= 1;
+                text_changed = true;
             }
         },
         KeyCode::Left => {
             if *b_gap > 0 {
                 text[*e_gap] = text[*b_gap-1];
                 text[*b_gap-1] = '\0';
-                *e_gap -= 1;
-                *b_gap -= 1;
+                ,*e_gap -= 1;
+                ,*b_gap -= 1;
             }
         },
         KeyCode::Right => {
             if *e_gap < text.len() - 1  {
                 text[*b_gap] = text[*e_gap+1];
                 text[*e_gap] = '\0';
-                *e_gap += 1;
-                *b_gap += 1;
+                ,*e_gap += 1;
+                ,*b_gap += 1;
             }
         },
         _ => {},
     }
-    Ok(())
+    Ok(text_changed)
 }
 
+#+end_src
+
+* Create display string
+We create a string by slicing out the gap, and sticking the strings together.
+#+begin_src rust :tangle ./src/main.rs
+fn buf_to_string(gap_buf: &Vec<char>, b_gap: usize, e_gap: usize) -> String {
+    String::from_iter(&gap_buf[0..b_gap]) + &String::from_iter(&gap_buf[e_gap..(gap_buf.len() - 1)])
+}
 #+end_src
 
 * Main
@@ -96,13 +107,21 @@ fn main() -> std::io::Result<()> {
     enable_raw_mode()?;
     let mut e_gap: usize = 49;
     let mut b_gap: usize = 0;
+    let mut dis_str: String = String::new();
     loop {
         if poll(Duration::from_millis(500))? {
             if let Event::Key(KeyEvent { code, modifiers, ..}) = read()? {
-                if poll_insert(&mut text, &mut b_gap, &mut e_gap, code, modifiers).is_err() {
+                let result: io::Result<bool> = poll_insert(&mut text, &mut b_gap, &mut e_gap, code, modifiers);
+                if result.is_err() {
                     break;
                 }
+                if let Ok(change) = result {
+                    if change {
+                        dis_str = buf_to_string(&text,b_gap,e_gap);
+                    }
+                }
             }
+
         }
     }
     println!("{:?}", text);
